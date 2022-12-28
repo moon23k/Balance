@@ -1,21 +1,33 @@
 ## Pipeline_Ablation
 
-Training an AI model need codes to process data, build a model, and specify the training and testing process.
-The entire code in which these codes work organically can be called a **pipeline**. 
-This repo covers pytorch implementation of three pipelines and compares each code style. 
-All pipelines deals the same model, data, and task. Each pipeline is my own pipeline, huggingface, and pytorchlightning.
+Deep learning modeling requires a series of processes for data, model, and training.
+A huge piece of code that includes all of these processes and works organically can be called a **pipeline**.
+Implementing a pipeline from scratch is difficult, so there are various libraries that help with this.
+This repo implements representativefour libraries and compare them with each other.
 
 <br>
 <br>
 
 ## PipeLines
 
-**Mine**
+**Pytorch**
+
+Pytorch is is developed by the facebook ai research team, which is the most basic library for deep learning modeling.
+
+
+<br>
+
+**Pytorch Litening**
+
 
 <br>
 
 **HuggingFace**
 
+It is a library that provides various data and pre-trained models for deep learning modeling.
+
 <br>
 
-**Pytorch Lightning**
+**FairSeq**
+
+<br>
