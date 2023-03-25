@@ -1,8 +1,11 @@
-import torch, json
+import os, json 
+from datasets import load_dataset
+from transformers import T5TokenizerFast
 
 
 
-def process_data(orig_data, tokenizer, volumn=12000):
+
+def process_data(orig_data, tokenizer, volumn=36000):
     min_len = 10 
     max_len = 300
     max_diff = 50
@@ -10,7 +13,7 @@ def process_data(orig_data, tokenizer, volumn=12000):
 
     volumn_cnt = 0
     processed = []
-
+    
     for elem in orig_data:
         src, trg = elem['en'].lower(), elem['de'].lower()
         src_len, trg_len = len(src), len(trg)
@@ -21,12 +24,16 @@ def process_data(orig_data, tokenizer, volumn=12000):
         dif_condition = abs(src_len - trg_len) < max_diff
 
         if max_condition & min_condition & dif_condition:
-            src_tokenized = tokenizer(prefix + src, max_length=512, truncation=True, padding=True)
-            trg_tokenized = tokenizer(trg, max_length=512, truncation=True, padding=True)
+            temp_dict = dict()
+            
+            src_tokenized = tokenizer(prefix + src, max_length=512, truncation=True)
+            trg_tokenized = tokenizer(trg, max_length=512, truncation=True)
 
-            processed.append({'input_ids': src_tokenized['input_ids'],
-                              'attention_mask': src_tokenized['attention_mask'],
-                              'labels': trg_tokenized['input_ids']})
+            temp_dict['input_ids'] = src_tokenized['input_ids']
+            temp_dict['attention_mask'] = src_tokenized['attention_mask']
+            temp_dict['labels'] = trg_tokenized['input_ids']
+            
+            processed.append(temp_dict)
             
             #End condition
             volumn_cnt += 1
@@ -36,9 +43,30 @@ def process_data(orig_data, tokenizer, volumn=12000):
     return processed
 
 
-def split_data(data_obj):
-    train, valid, test = data_obj[:-2000], data_obj[-2000:-1000], data_obj[-1000:]    
-    return train, valid, test
+def save_data(data_obj):
+    #split data into train/valid/test sets
+    train, valid, test = data_obj[:-6000], data_obj[-6000:-3000], data_obj[-3000:]
+    data_dict = {k:v for k, v in zip(['train', 'valid', 'test'], [train, valid, test])}
 
-
+    for key, val in data_dict.items():
+        with open(f'data/{key}.json', 'w') as f:
+            json.dump(val, f)        
+        assert os.path.exists(f'data/{key}.json')
     
+
+
+def main():
+    #Load Original Data
+    orig = load_dataset('wmt14', 'de-en', split='train')['translation']
+    tokenizer = T5TokenizerFast.from_pretrained('t5-small', model_max_length=512)
+
+    #PreProcess Data
+    processed = process_data(orig, tokenizer)
+
+    #Save Data
+    save_data(processed)
+
+
+
+if __name__ == '__main__':
+    main()
