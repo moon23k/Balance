@@ -1,13 +1,11 @@
 import os, argparse, torch
-
 import torch.nn as nn
 import torch.optim as optim
-import torch.backends.cudnn as cudnn
-
 from transformers import (set_seed,
 						  T5Config, 
 						  T5TokenizerFast, 
 						  T5ForConditionalGeneration)
+
 
 
 class Config(object):
@@ -21,6 +19,9 @@ class Config(object):
         self.batch_size = 128
         self.learning_rate = 5e-5
         self.iters_to_accumulate = 4
+
+        self.early_stop = True
+        self.patience = 3
 
         use_cuda = torch.cuda.is_available()
         if use_cuda:
@@ -47,10 +48,10 @@ def main(args):
     
 
     if args.pipe == 'pytorch':
-    	os.system(f'python3 pipes/pytorch/run.py -mode {args.mode}')	
+    	os.system(f'python3 pipes/torch/run.py -mode {args.mode}')	
 
     if args.pipe == 'pytorch_lite':
-    	os.system(f'python3 pipes/pytorch_lite/run.py -mode {args.mode}')
+    	os.system(f'python3 pipes/torch_lite/run.py -mode {args.mode}')
 
     if args.pipe == 'huggingface':
     	os.system(f'python3 pipes/huggingface/run.py -mode {args.mode}')
@@ -66,6 +67,6 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     assert args.mode in ['train', 'test']
-    assert args.pipe in ['pytorch', 'pytorch_lite', 'huggingface', 'fairseq']
+    assert args.pipe in ['torch', 'torch_lite', 'huggingface', 'fairseq']
 
     main(args)
