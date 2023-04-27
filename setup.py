@@ -5,11 +5,10 @@ from transformers import T5TokenizerFast
 
 
 
-def process_data(orig_data, tokenizer, volumn=36000):
+def process_data(orig_data, tokenizer, volumn=12000):
     min_len = 10 
     max_len = 300
     max_diff = 50
-    prefix = 'translate English to German: '
 
     volumn_cnt = 0
     processed = []
@@ -23,17 +22,9 @@ def process_data(orig_data, tokenizer, volumn=36000):
         max_condition = (src_len <= max_len) & (trg_len <= max_len)
         dif_condition = abs(src_len - trg_len) < max_diff
 
-        if max_condition & min_condition & dif_condition:
-            temp_dict = dict()
-            
-            src_tokenized = tokenizer(prefix + src, max_length=512, truncation=True)
-            trg_tokenized = tokenizer(trg, max_length=512, truncation=True)
-
-            temp_dict['input_ids'] = src_tokenized['input_ids']
-            temp_dict['attention_mask'] = src_tokenized['attention_mask']
-            temp_dict['labels'] = trg_tokenized['input_ids']
-            
-            processed.append(temp_dict)
+        if max_condition & min_condition & dif_condition:            
+            processed.append({'input_ids': tokenizer(src).input_ids,
+                              'labels': tokenizer(trg).input_ids})
             
             #End condition
             volumn_cnt += 1
@@ -45,7 +36,7 @@ def process_data(orig_data, tokenizer, volumn=36000):
 
 def save_data(data_obj):
     #split data into train/valid/test sets
-    train, valid, test = data_obj[:-6000], data_obj[-6000:-3000], data_obj[-3000:]
+    train, valid, test = data_obj[:-2000], data_obj[-2000:-1000], data_obj[-1000:]
     data_dict = {k:v for k, v in zip(['train', 'valid', 'test'], [train, valid, test])}
 
     for key, val in data_dict.items():

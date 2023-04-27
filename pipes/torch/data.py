@@ -11,7 +11,7 @@ class Dataset(torch.utils.data.Dataset):
 
     @staticmethod
     def load_data(split):
-        with open(f"data/{split}.json", 'r') as f:
+        with open(f"../../data/{split}.json", 'r') as f:
             data = json.load(f)
         return data
 

@@ -40,6 +40,9 @@ class Config(object):
             print(f"* {attribute}: {value}")
 
 
+def inference(config):
+    return
+
 
 def main(args):
     set_seed()
@@ -66,7 +69,7 @@ if __name__ == '__main__':
     parser.add_argument('-pipe', required=True)
     
     args = parser.parse_args()
-    assert args.mode in ['train', 'test']
+    assert args.mode in ['train', 'test', 'inference']
     assert args.pipe in ['torch', 'torch_lite', 'huggingface', 'fairseq']
 
     main(args)

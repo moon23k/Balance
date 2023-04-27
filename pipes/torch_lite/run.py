@@ -1,8 +1,10 @@
 import os, argparse, torch
-from module import PLModule
-from transformers import (set_seed, 
-	 					  T5Config,
-	 					  T5ForConditionalGeneration)
+from module import PLModel
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from transformers import (set_seed, T5Config, T5TokenizerFast, 
+                          T5ForConditionalGeneration)
 
 
 
@@ -11,13 +13,12 @@ class Config(object):
 
         self.mode = mode
         self.mname = 't5-base'
-        self.ckpt = f"ckpt/{self.pipe}.pt"
+        self.ckpt = "ckpt/torch_lite.pt"
         
         self.clip = 1
         self.lr = 5e-5
-        self.max_len = 300
         self.n_epochs = 10
-        self.batch_size = 128
+        self.batch_size = 32
         self.iters_to_accumulate = 4
 
         self.early_stop = True
@@ -32,7 +33,6 @@ class Config(object):
 
 
 def load_model(config):
-
     #Inner methods
     def count_params(model):
         params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -53,14 +53,14 @@ def load_model(config):
 
     #Actual Process
     if config.mode == 'train':
-        model = T5ForConditionalGeneration.from_pretrained(config.m_name)
+        model = T5ForConditionalGeneration.from_pretrained(config.mname)
         print("Pretrained T5 Model has loaded")
     
 
     elif config.mode != 'train':
         assert os.path.exists(config.ckpt)
         
-        model_config = T5Config.from_pretrained(config.m_name)
+        model_config = T5Config.from_pretrained(config.mname)
         model = T5ForConditionalGeneration(model_config)
         print("Initialized T5 Model has loaded")
         
@@ -91,11 +91,7 @@ def inference(model, tokenizer):
 
         #convert user input_seq into model input_ids
         encodings = tokenizer(input_seq)
-
-        if isinstance(model, EncoderDecoderModel):
-            preds = model.generate(**encodings, use_cache=True)
-        else:
-            preds = model.generate(**encodings)
+        preds = model.generate(**encodings)
 
         preds = tokenizer.decode(preds, skip_special_tokens=True)
 
@@ -105,24 +101,26 @@ def inference(model, tokenizer):
 
 
 def main(mode):
-	set_seed(42)
-	config = Config(mode)
-	model = load_model(config)
-	tokenizer = T5TokenizerFast.from_pretrained(config.mname)
+    set_seed(42)
+    config = Config(mode)
+    model = load_model(config)
+    tokenizer = T5TokenizerFast.from_pretrained(config.mname)
     setattr(config, 'vocab_size', tokenizer.vocab_size)
     setattr(config, 'pad_id', tokenizer.pad_token_id)
 
-	
-	if mode == 'train':
-        module = PLModule(config, model)
-        module.train()
 
-	elif mode == 'test':
-		module = PLModule(config, model, tokenizer)
-        module.test()
+    if mode == 'train':
+        pl_model = PLModel(config, model)
+        trainer = pl.Trainer(max_epochs=config.n_epochs)
+        trainer.fit(pl_model)
 
-	elif model == 'inference':
-		inference(config, model)
+    elif mode == 'test':
+        pl_model = PLModel(config, model, tokenizer)
+        trainer = pl.Trainer()
+        trainer.test()
+
+    elif model == 'inference':
+        inference(config, model)
 
 
 

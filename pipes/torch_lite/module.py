@@ -1,9 +1,9 @@
-import json, torch, evaluate
-from torch import nn
+import math, json, torch, evaluate
+import torch.nn as nn
+import torch.optim as optim
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
-
 
 
 
@@ -14,7 +14,7 @@ class Dataset(torch.utils.data.Dataset):
 
     @staticmethod
     def load_data(split):
-        with open(f"data/{split}.json", 'r') as f:
+        with open(f"../../data/{split}.json", 'r') as f:
             data = json.load(f)
         return data
 
@@ -24,19 +24,18 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         input_ids = self.data[idx]['input_ids']
         labels = self.data[idx]['labels']
-        
         return input_ids, labels
 
 
 
-class PLModule(pl.LightningModule):
-	def __init__(self, config, model, tokenizer=None):
-		super(PLModule, self).__init__()
-  
+class PLModel(pl.LightningModule):
+    def __init__(self, config, model, tokenizer=None):
+        super(PLModel, self).__init__()
+
         self.lr = config.lr
+        self.mode = config.mode
         self.pad_id = config.pad_id
-        self.device = config.device
-		self.batch_size = config.batch_size
+        self.batch_size = config.batch_size
         
         self.model = model
         if self.mode == 'test':
@@ -47,26 +46,41 @@ class PLModule(pl.LightningModule):
     def _collate_fn(self, batch):
         ids_batch, labels_batch = [], []
         for ids, labels in batch:
-            ids_batch.append(ids) 
-            labels_batch.append(labels)
+            ids_batch.append(torch.LongTensor(ids)) 
+            labels_batch.append(torch.LongTensor(labels))
+        
+        ids_batch = pad_sequence(ids_batch, batch_first=True, padding_value=self.pad_id)
+        mask_batch = (ids_batch==self.pad_id)
+        labels_batch = pad_sequence(labels_batch, batch_first=True, padding_value=self.pad_id)
+        
+        return {'input_ids': ids_batch,
+                'attention_mask': mask_batch,
+                'labels': labels_batch}
 
-        return {'input_ids': pad_sequence(ids_batch, batch_first=True, padding_value=self.pad_id),
-                'labels': pad_sequence(labels_batch, batch_first=True, padding_value=self.pad_id)}
+    def load_dataloader(self, split):
+        return DataLoader(Dataset(split), 
+                            batch_size=self.batch_size,
+                            collate_fn=self._collate_fn,
+                            shuffle=True if split == 'train' else False, 
+                            pin_memory=True,
+                            num_workers=2)
 
 
     def train_dataloader(self):
-        return DataLoader(Dataset('train'), 
-                          batch_size=self.batch_size,
-                          collate_fn=self._collate_fn,
-                          shuffle=True, 
-                          pin_memory=True,
-                          num_workers=2)
+        return self.load_dataloader('train')
+
+    def validation_dataloader(self):
+        return self.load_dataloader('valid')
+
+    def test_dataloader(self):
+        return self.load_dataloader('test')        
 
 
     def training_step(self, batch, batch_idx):
-        loss =  self.model(input_ids=batch['input_ids'].to(self.device), 
-                           attention_mask=(input_ids == self.pad_id).to(self.device),
-                           labels=batch['labels'].to(self.device)).loss
+        device = self.model.device
+        loss =  self.model(input_ids=batch['input_ids'].to(device), 
+                           attention_mask=batch['attention_mask'].to(device),
+                           labels=batch['labels'].to(device)).loss
         
         self.log('train loss', loss)
         self.log('train ppl', math.exp(loss))
@@ -74,9 +88,10 @@ class PLModule(pl.LightningModule):
         return loss
 
     def validataion_step(self, batch, batch_idx):
-        loss =  self.model(input_ids=batch['input_ids'].to(self.device), 
-                           attention_mask=(input_ids == self.pad_id).to(self.device),
-                           labels=batch['labels'].to(self.device)).loss
+        device = self.model.device
+        loss =  self.model(input_ids=batch['input_ids'].to(device), 
+                           attention_mask=batch['attention_mask'].to(device),
+                           labels=batch['labels'].to(device)).loss
         
         self.log('train loss', loss)
         self.log('train ppl', math.exp(loss))
@@ -84,8 +99,9 @@ class PLModule(pl.LightningModule):
 
 
     def test_step(self, batch, batch_idx):
-        input_ids = batch['input_ids'].to(self.device)
-        attention_mask = (input_ids == self.pad_id).to(self.device)
+        device = self.model.device
+        input_ids = batch['input_ids'].to(device)
+        attention_mask = batch['attention_mask'].to(device)
 
         greedy_pred = self.model.generate(input_ids=input_ids, 
                                           attention_mask=attention_mask, 
