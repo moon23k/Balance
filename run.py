@@ -59,8 +59,6 @@ def main(args):
     if args.pipe == 'huggingface':
     	os.system(f'python3 pipes/huggingface/run.py -mode {args.mode}')
 
-    if args.pipe == 'fairseq':
-    	os.system(f'python3 pipes/fairseq/run.py -mode {args.mode}')    	    	
 
 
 if __name__ == '__main__':
@@ -70,6 +68,6 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     assert args.mode in ['train', 'test', 'inference']
-    assert args.pipe in ['torch', 'torch_lite', 'huggingface', 'fairseq']
+    assert args.pipe in ['torch', 'torch_lite', 'huggingface']
 
     main(args)

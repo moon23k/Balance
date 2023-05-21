@@ -1,4 +1,4 @@
-import torch, json
+import json, torch
 from datasets import Dataset
 from datasets import load_dataset
 from transformers import (Trainer, 
