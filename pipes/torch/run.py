@@ -1,10 +1,16 @@
 import os, argparse, torch
-from module.test import Tester
-from module.train import Trainer
-from module.data import load_dataloader
-from transformers import (set_seed, 
-	 					  T5Config,
-	 					  T5ForConditionalGeneration)
+
+from module import (
+    load_dataloader,
+    Trainer,
+    Tester
+)
+
+from transformers import (
+    set_seed, 
+	T5Config,
+	T5ForConditionalGeneration
+)
 
 
 

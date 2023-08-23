@@ -1,7 +1,8 @@
 import time, math, json, torch
 import torch.nn as nn
 import torch.amp as amp
-import torch.optim as optim
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 
@@ -21,8 +22,8 @@ class Trainer:
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
 
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=config.learning_rate)
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min')
+        self.optimizer = AdamW(self.model.parameters(), lr=config.learning_rate)
+        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min')
         
         self.early_stop = config.early_stop
         self.patience = config.patience
@@ -104,8 +105,8 @@ class Trainer:
 
     def train_epoch(self):
 
-        self.model.train()
         epoch_loss = 0
+        self.model.train()
 
         for idx, batch in enumerate(self.train_dataloader):
             input_ids = batch['input_ids'].to(self.device)
@@ -113,9 +114,13 @@ class Trainer:
             labels = batch['labels'].to(self.device)
 
             with torch.autocast(device_type=self.device_type, dtype=torch.float16):
-                loss = self.model(input_ids = input_ids, 
-                                  attention_mask = attention_mask,
-                                  labels = labels).loss
+                
+                loss = self.model(
+                    input_ids = input_ids, 
+                    attention_mask = attention_mask,
+                    labels = labels
+                ).loss
+
                 loss = loss / self.iters_to_accumulate
             
             #Backward Loss
@@ -142,8 +147,8 @@ class Trainer:
 
     def valid_epoch(self):
         
-        self.model.eval()
         epoch_loss = 0
+        self.model.eval()
         
         with torch.no_grad():
             for _, batch in enumerate(self.valid_dataloader):
@@ -152,9 +157,12 @@ class Trainer:
                 labels = batch['labels'].to(self.device)                
                 
                 with torch.autocast(device_type=self.device_type, dtype=torch.float16):
-                    loss = self.model(input_ids = input_ids, 
-                                      attention_mask = attention_mask,
-                                      labels = labels).loss
+                    
+                    loss = self.model(
+                        input_ids = input_ids, 
+                        attention_mask = attention_mask,
+                        labels = labels
+                    ).loss
                 
                 #gc.collect()
                 #torch.cuda.empty_cache()

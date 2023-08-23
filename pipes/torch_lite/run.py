@@ -1,10 +1,17 @@
 import os, argparse, torch
 from module import PLModel
 import pytorch_lightning as pl
+
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from transformers import (set_seed, T5Config, T5TokenizerFast, 
-                          T5ForConditionalGeneration)
+
+from transformers import (
+    set_seed, 
+    T5Config, 
+    T5TokenizerFast, 
+    T5ForConditionalGeneration
+)
+
 
 
 

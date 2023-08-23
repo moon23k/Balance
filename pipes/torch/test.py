@@ -11,7 +11,6 @@ class Tester:
         self.tokenizer = tokenizer
         self.device = config.device
         self.dataloader = test_dataloader
-        self.beam_size = config.beam_size
 
         self.metric_name = 'BLEU'
         self.metric_module = evaluate.load('bleu')
@@ -27,7 +26,7 @@ class Tester:
 
     def test(self):
         self.model.eval()        
-        tot_len, greedy_score, beam_score = 0, 0, 0
+        tot_len, score = len(self.dataloader), 0
 
         print(f'Test Results on {self.task.upper()}')
         with torch.no_grad():
@@ -35,18 +34,13 @@ class Tester:
             
                 src = batch['src'].to(self.device)
                 trg = batch['trg'].to(self.device)
-                tot_len += src.size(0)
         
-                greedy_pred = self.model.generate(src, beam_size=self.beam_size)
-                beam_pred = self.model.generate(src)
-                
-                greedy_score += self.metric_score(greedy_pred, trg)
-                beam_score += self.metric_score(beam_pred, trg)
+                pred = self.model.generate(src)
+                score += self.metric_score(pred, trg)
         
-        greedy_score = round(greedy_score/tot_len, 2)
-        beam_score = round(beam_score/tot_len, 2)
+        score = round(score / tot_len, 2)
         
-        return greedy_score, beam_score
+        return score
         
 
 

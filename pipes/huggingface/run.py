@@ -1,11 +1,14 @@
 import json, torch
 from datasets import Dataset
 from datasets import load_dataset
-from transformers import (Trainer, 
-						  TrainingArguments, 
-						  DataCollatorForSeq2Seq,
-						  T5TokenizerFast,
-						  T5ForConditionalGeneration) 
+
+from transformers import (
+	Trainer, 
+	TrainingArguments, 
+	DataCollatorForSeq2Seq,
+	T5TokenizerFast,
+	T5ForConditionalGeneration
+) 
 
 
 
@@ -25,7 +28,9 @@ def main(mode):
 	valid_ds = load_dataset('valid')
 	test_ds = load_dataset('test')
 
-	data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding=True)
+	data_collator = DataCollatorForSeq2Seq(
+		tokenizer=tokenizer, model=model, padding=True
+	)
 
 
 	default_args = {
@@ -48,11 +53,13 @@ def main(mode):
 	    **default_args,
 	)
 
-	trainer = Trainer(model=model, 
-	                  args=training_args, 
-	                  train_dataset=train_ds, 
-	                  eval_dataset=valid_ds,
-	                  data_collator=data_collator)
+	trainer = Trainer(
+		model=model, 
+	    args=training_args, 
+	    train_dataset=train_ds, 
+	    eval_dataset=valid_ds,
+	    data_collator=data_collator
+	)
 
 	result = trainer.train()
 	print_summary(result)

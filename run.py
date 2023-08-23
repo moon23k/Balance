@@ -1,15 +1,16 @@
 import os, argparse, torch
-import torch.nn as nn
-import torch.optim as optim
-from transformers import (set_seed,
-						  T5Config, 
-						  T5TokenizerFast, 
-						  T5ForConditionalGeneration)
+from transformers import (
+    set_seed,
+	T5Config, 
+	T5TokenizerFast, 
+	T5ForConditionalGeneration
+)
 
 
 
 class Config(object):
-    def __init__(self, args):    
+    def __init__(self, args):
+
         self.task = args.task
         self.mode = args.mode
         self.ckpt = f"ckpt/{self.task}.pt"
@@ -39,9 +40,6 @@ class Config(object):
         for attribute, value in self.__dict__.items():
             print(f"* {attribute}: {value}")
 
-
-def inference(config):
-    return
 
 
 def main(args):
