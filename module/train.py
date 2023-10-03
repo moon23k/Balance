@@ -11,25 +11,25 @@ class Trainer:
         super(Trainer, self).__init__()
 
         self.model = model
+        self.train_dataloader = train_dataloader
+        self.valid_dataloader = valid_dataloader
+
         self.clip = config.clip
         self.device = config.device
         self.n_epochs = config.n_epochs
-
+        self.vocab_size = config.vocab_size
+        self.early_stop = config.early_stop
+        self.patience = config.patience
         self.device_type = config.device_type
         self.scaler = torch.cuda.amp.GradScaler()
         self.iters_to_accumulate = config.iters_to_accumulate        
 
-        self.train_dataloader = train_dataloader
-        self.valid_dataloader = valid_dataloader
-
-        self.optimizer = AdamW(self.model.parameters(), lr=config.learning_rate)
-        self.scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min')
-        
-        self.early_stop = config.early_stop
-        self.patience = config.patience
+        self.criterion = nn.CrossEntropyLoss()
+        self.optimizer = AdamW(self.model.parameters(), lr=config.lr)
+        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, patience=2)
 
         self.ckpt = config.ckpt
-        self.record_path = f"ckpt/{config.task}.json"
+        self.record_path = self.ckpt.replace('.pt', '.json')
         self.record_keys = ['epoch', 'train_loss', 'train_ppl',
                             'valid_loss', 'valid_ppl', 
                             'learning_rate', 'train_time']
@@ -46,7 +46,6 @@ class Trainer:
               Valid PPL: {record_dict['valid_ppl']:.2f}\n""".replace(' ' * 14, ''))
 
 
-
     @staticmethod
     def measure_time(start_time, end_time):
         elapsed_time = end_time - start_time
@@ -55,10 +54,10 @@ class Trainer:
         return f"{elapsed_min}m {elapsed_sec}s"
 
 
-
     def train(self):
         records = []
         prev_loss, best_loss = float('inf'), float('inf')
+        patience = self.patience
 
         for epoch in range(1, self.n_epochs + 1):
             start_time = time.time()
@@ -72,7 +71,7 @@ class Trainer:
             self.print_epoch(record_dict)
             
             val_loss = record_dict['valid_loss']
-            self.scheduler.step(val_loss)
+            self.lr_scheduler.step(val_loss)
 
             #save best model
             if best_loss > val_loss:
@@ -101,32 +100,34 @@ class Trainer:
             json.dump(records, fp)
 
 
+    def get_loss(self, logit, label):
+        return self.criterion(
+            logit.contiguous().view(-1, self.vocab_size), 
+            label.contiguous().view(-1)
+        )
 
 
     def train_epoch(self):
-
-        epoch_loss = 0
         self.model.train()
+        tot_len = len(self.train_dataloader)
+        epoch_loss = 0
+
 
         for idx, batch in enumerate(self.train_dataloader):
-            input_ids = batch['input_ids'].to(self.device)
-            attention_mask = batch['attention_mask'].to(self.device)
-            labels = batch['labels'].to(self.device)
+            idx += 1
+            x = batch['x'].to(self.device)
+            y = batch['y'].to(self.device)
+            label = batch['label'].to(self.device)
 
             with torch.autocast(device_type=self.device_type, dtype=torch.float16):
-                
-                loss = self.model(
-                    input_ids = input_ids, 
-                    attention_mask = attention_mask,
-                    labels = labels
-                ).loss
-
+                logit = self.model(x, y)
+                loss = self.get_loss(logit, label)                
                 loss = loss / self.iters_to_accumulate
             
             #Backward Loss
             self.scaler.scale(loss).backward()        
             
-            if (idx + 1) % self.iters_to_accumulate == 0:
+            if (idx % self.iters_to_accumulate == 0) or (idx == tot_len):
                 #Gradient Clipping
                 self.scaler.unscale_(self.optimizer)
                 nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.clip)
@@ -135,41 +136,32 @@ class Trainer:
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 self.optimizer.zero_grad()
-   
+
             epoch_loss += loss.item()
         
-        epoch_loss = round(epoch_loss / len(self.train_dataloader), 3)
-        epoch_ppl = round(math.exp(epoch_loss), 3)    
+        epoch_loss = round(epoch_loss / tot_len, 3)
+        epoch_ppl = round(math.exp(epoch_loss), 3) 
 
         return epoch_loss, epoch_ppl
     
 
-
     def valid_epoch(self):
-        
-        epoch_loss = 0
         self.model.eval()
+        epoch_loss = 0
         
         with torch.no_grad():
-            for _, batch in enumerate(self.valid_dataloader):
-                input_ids = batch['input_ids'].to(self.device)
-                attention_mask = batch['attention_mask'].to(self.device)
-                labels = batch['labels'].to(self.device)                
+            for batch in self.valid_dataloader:
+                x = batch['x'].to(self.device)
+                y = batch['y'].to(self.device) 
+                label = batch['label'].to(self.device)
                 
                 with torch.autocast(device_type=self.device_type, dtype=torch.float16):
-                    
-                    loss = self.model(
-                        input_ids = input_ids, 
-                        attention_mask = attention_mask,
-                        labels = labels
-                    ).loss
-                
-                #gc.collect()
-                #torch.cuda.empty_cache()
+                    logit = self.model(x, y)
+                    loss = self.get_loss(logit, label)
 
                 epoch_loss += loss.item()
         
         epoch_loss = round(epoch_loss / len(self.valid_dataloader), 3)
         epoch_ppl = round(math.exp(epoch_loss), 3)        
-
+        
         return epoch_loss, epoch_ppl
