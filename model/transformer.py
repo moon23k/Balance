@@ -15,7 +15,7 @@ class PositionalEncoding(nn.Module):
     def __init__(self, config):
         super(PositionalEncoding, self).__init__()
         
-        max_len = config.max_len if config.task != 'sum' else config.max_len * 4
+        max_len = config.max_len if config.task != 'summarization' else config.max_len * 4
         pe = torch.zeros(max_len, config.emb_dim)
         
         position = torch.arange(0, max_len).unsqueeze(1)
@@ -60,15 +60,17 @@ class Embeddings(nn.Module):
         return self.fc_dropout(self.fc(out))
 
 
+
 class LinkLayer(nn.Module):
     def __init__(self, input_dim, output_dim, dropout_ratio):
         super(LinkLayer, self).__init__()
-        
+
         self.link = nn.Linear(input_dim, output_dim)
         self.dropout = nn.Dropout(dropout_ratio)
 
     def forward(self, x):
         return self.dropout(self.link(x))
+
 
 
 class Encoder(nn.Module):
@@ -85,7 +87,7 @@ class Encoder(nn.Module):
         )
 
         self.embeddings = Embeddings(config)
-        self.layers = clones(layer, config.n_layers)
+        self.layers = clones(layer, config.enc_n_layers)
 
         self.emb_enc_link = LinkLayer(
             config.emb_dim, config.enc_hidden_dim, config.dropout_ratio
@@ -121,7 +123,7 @@ class Decoder(nn.Module):
         )
 
         self.embeddings = Embeddings(config)
-        self.layers = clones(layer, config.n_layers)
+        self.layers = clones(layer, config.dec_n_layers)
         
         self.emb_dec_link = LinkLayer(
             config.emb_dim, config.dec_hidden_dim, config.dropout_ratio

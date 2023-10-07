@@ -14,7 +14,6 @@ class Tester:
         self.bos_id = config.bos_id
         self.device = config.device
         self.max_len = config.max_len
-        self.model_type = config.model_type
         
         self.metric_name = 'BLEU' if self.task == 'translation' else 'ROUGE'
         self.metric_module = evaluate.load(self.metric_name.lower())
@@ -27,8 +26,8 @@ class Tester:
 
         with torch.no_grad():
             for batch in self.dataloader:
-                x = batch['src'].to(self.device)
-                y = self.tokenize(batch['trg'])
+                x = batch['x'].to(self.device)
+                y = self.tokenize(batch['y'])
 
                 pred = self.predict(x)
                 pred = self.tokenize(pred)

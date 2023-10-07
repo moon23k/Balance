@@ -163,8 +163,8 @@ def process_summarization_data(data_volumn=101100):
 
                     #End Condition
                     volumn_cnt += 1
-                    if volumn_cnt == data_volumn:
-                        break
+            if volumn_cnt == data_volumn:
+                break
 
     with open('data/summarization/corpus.txt', 'w') as f:
         f.write('\n'.join(corpus))
