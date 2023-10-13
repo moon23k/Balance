@@ -41,7 +41,7 @@ class Config(object):
         self.task = args.task
         self.mode = args.mode
         self.balance = args.balance
-        self.model_type = args.model
+        self.model = args.model_type
         self.search_method = args.search        
 
         self.ckpt = f"ckpt/{self.task}/{self.balance}_{self.model_type}_model.pt"

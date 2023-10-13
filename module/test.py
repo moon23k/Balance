@@ -63,19 +63,17 @@ class Tester:
         return pred
 
 
-
     def evaluate(self, pred, label):
-        #For NMT Evaluation
-        if self.task == 'translation':
-            score = self.metric_module.compute(
-                predictions=pred, 
-                references =[[l] for l in label]
-            )['bleu']
-        #For Dialg & Sum Evaluation
-        else:
-            score = self.metric_module.compute(
-                predictions=pred, 
-                references =[[l] for l in label]
-            )['rouge2']
-
+        score = 0.0
+        
+        for p, l in zip(pred, label):
+            if not p:
+                score += 0
+                continue
+            
+            if self.task == 'translation':
+                score += self.metric_module.compute(predictions=[p], references=[[l]])['bleu']
+            elif self.task != 'translation':
+                score += self.metric_module.compute(predictions=[p], references=[[l]])['rouge2']
+        
         return score * 100
