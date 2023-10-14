@@ -1,62 +1,51 @@
 ## Transformer Balance
+&nbsp; To address Natural Language Generation tasks using Transformer models, both Encoder and Decoder components are essential. 
+Typically, a well-balanced structure between the Encoder and Decoder yields good performance. 
+However, depending on the nature of the task, there are cases where either the Encoding or Decoding aspect becomes more critical.
 
-Transformer Sequence to Sequence 모델은 Encoder와 Decoder로 구성되어 있습니다. 일반적으로 Encoder와 Decoder가 균형적인 구조에서 좋은 성능을 발휘하지만
-해결하고자 하는 과제의 특성에 따라, 상대적으로 Encoding이 더욱 중요한 과제도 있으며, 반대로 Decoding이 더욱 중요한 과제도 존재합니다.
-
-필요한 부분만을 강조하는 것이 얼마나 성능에 효과적인지를 직접 확인하기 위해 
-이 repo에서는 Translation, Dialogue Generation, Text Summarization 이라는 세 가지 Natural Language Generation Task에서
-Encoder와 Decoder의 Balance가 맞춰진 모델, Encoder가 강조된 모델, Deocder가 강조된 모델을 Width와 Depth관점에서 총 7가지 변인을 만들어
-실제 결과를 확인해봅니다.
+To investigate the direct impact of emphasizing specific aspects on performance, this repository explores six combinations in terms of Width and Depth for models in three natural language generation tasks: Translation, Dialogue Generation, and Text Summarization. 
+These combinations include models with a balanced emphasis on both Encoder and Decoder, models with a stronger focus on Encoder, and models with a stronger focus on Decoder.
 
 <br><br> 
 
 
-## Architecture Desc
+## Model Architecture
+&nbsp; In this project, we use a Transformer structure that builds upon the standard Transformer architecture proposed in "Attention is All You Need" by adding linear layers before and after the Encoder and Decoder. 
+This improvement allows the Transformer model to handle input and output values of different dimensions flexibly. 
+All other aspects of the structure remain the same as the standard Transformer.
 
-아래와 같은 변인에 대처할 수 있도록 BaseLine Transformer Model은 Standard Transformer의 Encoder와 Decoder 시작 및 마무리 시점에
-Linear 레이어가 추가된 모델을 사용합니다. 실험의 변수로 작용할 모델의 변인에 대한 상세설명은 아래와 같습니다.
-
-### Balance
-* **Equally-Weighted** <br> 
-  Standard Transformer 처럼 Encoder와 Decoder의 Balance가 맞춰진 모델 구조
-
-* **Encoder-Weighted** <br> 
-  의도적으로 Encoder에 더 큰 비중을 둔 모델
-
-* **Decoder-Weighted** <br> 
-  의도적으로 Decoder에 더 큰 비중을 둔 모델
+To measure the performance of each model, we conduct experiments using a baseline model and six variant models. 
+We categorize these models based on their focus between the Encoder and Decoder and the model's width and depth. 
+Detailed information for each model can be found in the table below.
 
 <br> 
 
-### Model Type
-
-* **Default Model** <br> 
-  의도적으로 딥하거나 와이드하게 변형을 거치는 아래의 모델들과 달리 config.yaml 파일에 사용자가 명시한 그대로의 하이퍼 파라미터로 구성된 모델.
-
-* **Wide Model** <br> 
-  config.yaml 파일에 사용자가 명시한 내용중에서 모델의 width를 결정짓는 Hidden Dimension를 의도적으로 2배 만큼 증가시킨 모델
-
-* **Deep Model** <br> 
-  config.yaml 파일에 사용자가 명시한 내용중에서, 모델의 depth를 결정짓는 Num of Layers를 의도적으로 2배 만큼 증가시킨 모델
-
+| Model Name | Balance | Type | Note |
+|---|---|---|---|
+| Equal Default Model | Equal | Default | Base Line Model, Not weighted to one side, well balanced. |
+| Equal Wide Model | Equal | Wide | Not weighted to one side, but has double hidden dimension size both on Encoder and Decoder |
+| Equal Deep Model | Equal | Deep | Not weighted to one side, but has double Layer Numbers both on Encoder and Decoder |
+| Encoder Wide Model | Encoder | Wide | Encoder Weighted Model, with doubled hidden dimension size only on Encoder |
+| Encoder Deep Model | Encoder | Deep | Encoder Weighted Model, with doubled Layer Numbers only on Encoder |
+| Decoder Wide Model | Decoder | Wide | Decoder Weighted Model, with doubled hidden dimension size only on Decoder |
+| Decoder Deep Model | Decoder | Deep | Decoder Weighted Model, with doubled Layer Numbers only on Decoder |
 
 <br><br>
 
-## Result
-| Model | Translation | Dialogue Generation | Summarization |
-|:---:|:---:|:---:|:---:|
-| Equal Default Model | - | - | - |
-| Equal Wide Model | - | - | - |
-| Equal Deep Model | - | - | - |
-| Encoder Wide Model | - | - | - |
-| Encoder Deep Model | - | - | - |
-| Decoder Wide Model | - | - | - |
-| Decoder Deep Model | - | - | - |
 
+## Result
+| Model | Machine Translation | Dialogue Generation | Text Summarization |
+|:---:|:---:|:---:|:---:|
+| Equal Default Model | 11.23 | 29.65 | - |
+| Equal Wide Model | 0.00 | 0.00 | - |
+| Equal Deep Model | 0.00 | 0.00 | - |
+| Encoder Wide Model | 0.00 | 14.67 | - |
+| Encoder Deep Model | 0.00 | 21.02 | - |
+| Decoder Wide Model | 0.00 | 0.00 | - |
+| Decoder Deep Model | 0.00 | 0.00 | - |
 
 <br><br> 
 
 ## Reference
-Attention is All You Need
-
+* [**Attention is All You Need**](https://arxiv.org/abs/1706.03762)
 <br> 
