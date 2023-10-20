@@ -47,9 +47,6 @@ class Config(object):
         self.ckpt = f"ckpt/{self.task}/{self.balance}_{self.model_type}_model.pt"
         self.tokenizer_path = f'data/{self.task}/tokenizer.json'
 
-        if self.task == 'summarization':
-            self.batch_size = self.batch_size // 4
-
         use_cuda = torch.cuda.is_available()
         self.device_type = 'cuda' \
                            if use_cuda and self.mode != 'inference' \
