@@ -1,8 +1,6 @@
 import os, yaml, argparse, torch
-
 from tokenizers import Tokenizer
 from tokenizers.processors import TemplateProcessing
-
 from module import (
     load_dataloader,
     load_model,
@@ -31,69 +29,62 @@ def set_seed(SEED=42):
 class Config(object):
     def __init__(self, args):    
 
-        #Get attributions from 'config.yaml' file
+        self.task = args.task
+        self.mode = args.mode
+        self.model_type = args.model
+        self.search_method = args.search        
+        self.ckpt = f"ckpt/{self.task}/{self.model_type}_model.pt"
+        self.tokenizer_path = f'data/{self.task}/tokenizer.json'
+
+        self.load_config()
+        self.setup_device()
+        self.update_model_attrs()
+
+
+    def load_config(self):
         with open('config.yaml', 'r') as f:
             params = yaml.load(f, Loader=yaml.FullLoader)
             for group in params.keys():
                 for key, val in params[group].items():
                     setattr(self, key, val)
 
-        self.task = args.task
-        self.mode = args.mode
-        self.balance = args.balance
-        self.model = args.model_type
-        self.search_method = args.search        
-
-        self.ckpt = f"ckpt/{self.task}/{self.balance}_{self.model_type}_model.pt"
-        self.tokenizer_path = f'data/{self.task}/tokenizer.json'
-
+    def setup_device(self):
         use_cuda = torch.cuda.is_available()
-        self.device_type = 'cuda' \
-                           if use_cuda and self.mode != 'inference' \
-                           else 'cpu'
+        self.device_type = 'cuda' if use_cuda and self.mode != 'inference' else 'cpu'
         self.device = torch.device(self.device_type)
 
-        self.enc_n_layers = self.n_layers
-        self.dec_n_layers = self.n_layers            
-        self.enc_hidden_dim = self.hidden_dim
-        self.dec_hidden_dim = self.hidden_dim
-        self.enc_pff_dim = self.pff_dim
-        self.dec_pff_dim = self.pff_dim
 
-        hidden_dim = self.hidden_dim
-        pff_dim = self.pff_dim
-        n_layers = self.n_layers
+    def update_model_attrs(self):
+        
+        attributes = {
+            'enc_n_layers': self.n_layers,
+            'dec_n_layers': self.n_layers,
+            'enc_n_heads': self.n_heads,
+            'dec_n_heads': self.n_heads,
+            'enc_hidden_dim': self.hidden_dim,
+            'dec_hidden_dim': self.hidden_dim,
+            'enc_pff_dim': self.pff_dim,
+            'dec_pff_dim': self.pff_dim
+        }
 
+        model_type_rules = {
+            'enc_wide': ['enc_hidden_dim', 'enc_pff_dim'],
+            'dec_wide': ['dec_hidden_dim', 'dec_pff_dim'],
+            'enc_deep': ['enc_n_layers'],
+            'dec_deep': ['dec_n_layers'],
+            'enc_diverse': ['enc_n_heads'],
+            'dec_diverse': ['dec_n_heads'],
+            'large': ['enc_hidden_dim', 'enc_pff_dim', 'dec_hidden_dim', 'dec_pff_dim',
+                    'enc_n_layers', 'dec_n_layers', 'enc_n_heads', 'dec_n_heads']
+        }
 
-        if self.balance == 'equal':
-            if self.model_type == 'wide':
-                self.enc_hidden_dim = hidden_dim * 2
-                self.dec_hidden_dim = hidden_dim * 2
-                self.enc_pff_dim = pff_dim * 2
-                self.dec_pff_dim = pff_dim * 2            
-            elif self.model_type == 'deep':
-                self.enc_n_layers = n_layers * 2
-                self.dec_n_layers = n_layers * 2
-
-        elif self.balance == 'encoder':
-            if self.model_type == 'wide':
-                self.enc_hidden_dim = hidden_dim * 2
-                self.dec_hidden_dim = hidden_dim
-                self.enc_pff_dim = pff_dim * 2
-                self.dec_pff_dim = pff_dim
-            elif self.model_type == 'deep':
-                self.enc_n_layers = n_layers * 2
-                self.dec_n_layers = n_layers
-
-        elif self.balance == 'decoder':
-            if self.model_type == 'wide':
-                self.enc_hidden_dim = hidden_dim
-                self.dec_hidden_dim = hidden_dim * 2
-                self.enc_pff_dim = pff_dim
-                self.dec_pff_dim = pff_dim * 2
-            elif self.model_type == 'deep':
-                self.enc_n_layers = n_layers
-                self.dec_n_layers = n_layers * 2
+        model_type = self.model_type
+        if model_type in model_type_rules.keys():
+            rules = model_type_rules[model_type]
+            for attr in rules:
+                attributes[attr] *= 2
+        for attr, value in attributes.items():
+            setattr(self, attr, value)
 
 
     def print_attr(self):
@@ -146,23 +137,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-task', required=True)
     parser.add_argument('-mode', required=True)
-    parser.add_argument('-balance', required=True)
     parser.add_argument('-model', required=True)
     parser.add_argument('-search', default='greedy', required=False)
     
     args = parser.parse_args()
     assert args.task.lower() in ['translation', 'dialogue', 'summarization']
     assert args.mode.lower() in ['train', 'test', 'inference']
-    assert args.balance.lower() in ['equal', 'encoder', 'decoder']
-    assert args.model.lower() in ['default', 'wide', 'deep']
+    assert args.model.lower() in ['base', 'enc_wide', 'enc_deep', 'enc_diverse', 
+                                  'dec_wide', 'dec_deep', 'dec_diverse', 'large']
     assert args.search.lower() in ['greedy', 'beam']
-
-    if args.balance.lower() in ['encoder', 'decoder']:
-        assert args.model in ['wide', 'deep']
 
     if args.mode == 'train':
         os.makedirs(f"ckpt/{args.task}", exist_ok=True)
     else:
-        assert os.path.exists(f'ckpt/{args.task}/model.pt')
+        assert os.path.exists(f'ckpt/{args.task}/{args.model}_model.pt')
 
     main(args)

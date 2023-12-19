@@ -10,7 +10,7 @@ from tokenizers.normalizers import NFD, Lowercase, StripAccents
 
 
 #NMT
-def process_translation_data(data_volumn=101100):
+def process_translation_data(data_volumn):
     #load original dataset
     nmt_data = load_dataset('wmt14', 'de-en', split='train')['translation']
     
@@ -23,18 +23,18 @@ def process_translation_data(data_volumn=101100):
     
     for elem in nmt_data:
         temp_dict = dict()
-        src, trg = elem['en'].strip().lower(), elem['de'].strip().lower()
-        src_len, trg_len = len(src), len(trg)
+        x, y = elem['en'].strip().lower(), elem['de'].strip().lower()
+        x_len, y_len = len(x), len(y)
 
         #Filtering Conditions
-        min_condition = (src_len >= min_len) & (trg_len >= min_len)
-        max_condition = (src_len <= max_len) & (trg_len <= max_len)
-        dif_condition = abs(src_len - trg_len) < max_diff
+        min_condition = (x_len >= min_len) & (y_len >= min_len)
+        max_condition = (x_len <= max_len) & (y_len <= max_len)
+        dif_condition = abs(x_len - y_len) < max_diff
 
         if max_condition & min_condition & dif_condition:
-            corpus.append(src)
-            corpus.append(trg)
-            processed.append({'src': src, 'trg':trg})
+            corpus.append(x)
+            corpus.append(y)
+            processed.append({'x': x, 'y':y})
             
             #End condition
             volumn_cnt += 1
@@ -50,17 +50,16 @@ def process_translation_data(data_volumn=101100):
 
 
 #Dialog
-def process_dialogue_data():
+def process_dialogue_data(data_volumn):
+    volumn_cnt = 0
     corpus, processed = [], []
 
     #Load original Datasets
     daily_data = load_dataset('daily_dialog')
-    blend_data = load_dataset('blended_skill_talk')
 
 
-    #Process Daily-Dialogue Dataset
-    daily_src, daily_trg = [], []
-    
+    #Daily-Dialogue Dataset Processing
+    x_data, y_data = [], []
     for split in ['train', 'validation', 'test']:
         for dial in daily_data[split]['dialog']:
             dial_list = []
@@ -80,51 +79,39 @@ def process_dialogue_data():
                 continue
 
             elif dial_turns == 2:
-                daily_src.append(dial_list[0])
-                daily_trg.append(dial_list[1])
+                x_data.append(dial_list[0])
+                y_data.append(dial_list[1])
                 continue  #To avoid duplicate on below condition
 
             #Incase of dial_turns is even
             elif dial_turns % 2 == 0:
-                daily_src.extend(dial_list[0::2])
-                daily_trg.extend(dial_list[1::2])
+                x_data.extend(dial_list[0::2])
+                y_data.extend(dial_list[1::2])
 
-                daily_src.extend(dial_list[1:-1:2])
-                daily_trg.extend(dial_list[2::2])
+                x_data.extend(dial_list[1:-1:2])
+                y_data.extend(dial_list[2::2])
             
             #Incase of dial_turns is odds
             elif dial_turns % 2 == 1:
-                daily_src.extend(dial_list[0:-1:2])
-                daily_trg.extend(dial_list[1::2])
+                x_data.extend(dial_list[0:-1:2])
+                y_data.extend(dial_list[1::2])
                 
-                daily_src.extend(dial_list[1::2])
-                daily_trg.extend(dial_list[2::2])   
+                x_data.extend(dial_list[1::2])
+                y_data.extend(dial_list[2::2])   
 
 
-    assert len(daily_src) == len(daily_trg)
-    for src, trg in zip(daily_src, daily_trg):        
-        corpus.append(src)
-        corpus.append(trg)
-        processed.append({'src': src, 'trg': trg})
-
-
-    #Blend Skill Dataset
-    for split in ['train', 'validation', 'test']:
-        for elem in blend_data[split]:
-            prevs = elem['previous_utterance']
-
-            first_uttr = prevs[0].strip().lower()
-            second_uttr = prevs[1].strip().lower()
-            third_uttr = elem['free_messages'][0].lower()
-
-            corpus.append(first_uttr)
-            corpus.append(second_uttr)
-            corpus.append(third_uttr)
-
-            processed.append({'src': first_uttr, 'trg': second_uttr})
-            processed.append({'src': second_uttr, 'trg': third_uttr})
+    assert len(x_data) == len(y_data)
     
+    for x, y in zip(x_data, y_data):        
+        corpus.append(x)
+        corpus.append(y)
+        processed.append({'x': x, 'y': y})
 
+        volumn_cnt += 1
+        if volumn_cnt == data_volumn:
+            break        
+
+    
     #Save Corpus
     with open('data/dialogue/corpus.txt', 'w') as f:
         f.write('\n'.join(corpus))    
@@ -134,10 +121,10 @@ def process_dialogue_data():
 
 
 #Summarization
-def process_summarization_data(data_volumn=101100):    
+def process_summarization_data(data_volumn):    
     volumn_cnt = 0
     corpus, processed = [], []
-    min_len, max_len = 500, 3000
+    min_len, max_len = 500, 2300
 
     #Load Original Dataset
     cnn_data = load_dataset('cnn_dailymail', '3.0.0')
@@ -145,21 +132,21 @@ def process_summarization_data(data_volumn=101100):
     for split in ['train', 'validation', 'test']:
         for elem in cnn_data[split]:
 
-            src, trg = elem['article'], elem['highlights']
+            x, y = elem['article'], elem['highlights']
 
-            if min_len < len(src) < max_len:
-                if len(trg) < min_len:
+            if min_len < len(x) < max_len:
+                if len(y) < min_len:
                     
                     #Lowercase
-                    src, trg = src.lower(), trg.lower()
+                    x, y = x.lower(), y.lower()
 
                     #Remove unnecessary characters in trg sequence
-                    trg = re.sub(r'\n', ' ', trg)                 #remove \n
-                    trg = re.sub(r"\s([.](?:\s|$))", r'\1', trg)  #remove whitespace in front of dot
+                    y = re.sub(r'\n', ' ', y)                 #remove \n
+                    y = re.sub(r"\s([.](?:\s|$))", r'\1', y)  #remove whitespace in front of dot
 
-                    processed.append({'src': src, 'trg': trg})
-                    corpus.append(src)
-                    corpus.append(trg)
+                    processed.append({'x': x, 'y': y})
+                    corpus.append(x)
+                    corpus.append(y)
 
                     #End Condition
                     volumn_cnt += 1
@@ -201,7 +188,7 @@ def train_tokenizer(task):
 
 def save_data(task, data_obj):
     #split data into train/valid/test sets
-    train, valid, test = data_obj[:-1100], data_obj[-1100:-100], data_obj[-100:]
+    train, valid, test = data_obj[:-5100], data_obj[-5100:-100], data_obj[-100:]
     data_dict = {k:v for k, v in zip(['train', 'valid', 'test'], [train, valid, test])}
 
     for key, val in data_dict.items():
@@ -217,12 +204,13 @@ def main(task):
     os.makedirs(f'data/{task}', exist_ok=True)
 
     #PreProcess Data
+    data_volumn = 55100
     if task == 'translation':
-        processed = process_translation_data()
+        processed = process_translation_data(data_volumn)
     elif task == 'dialogue':
-        processed = process_dialogue_data()
+        processed = process_dialogue_data(data_volumn)
     elif task == 'summarization':
-        processed = process_summarization_data()        
+        processed = process_summarization_data(data_volumn)        
 
     #Train Tokenizer
     train_tokenizer(task)

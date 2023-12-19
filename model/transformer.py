@@ -36,7 +36,7 @@ class PositionalEncoding(nn.Module):
 
 
 class Embeddings(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, hidden_dim):
         super(Embeddings, self).__init__()
 
         self.tok_emb = nn.Embedding(config.vocab_size, config.emb_dim)
@@ -45,9 +45,9 @@ class Embeddings(nn.Module):
         self.pos_emb = PositionalEncoding(config)
         self.pos_dropout = nn.Dropout(config.dropout_ratio)
 
-        self.use_fc_layer = (config.emb_dim != config.hidden_dim)
+        self.use_fc_layer = (config.emb_dim != hidden_dim)
         if self.use_fc_layer:
-            self.fc = nn.Linear(config.emb_dim, config.hidden_dim)
+            self.fc = nn.Linear(config.emb_dim, hidden_dim)
             self.fc_dropout = nn.Dropout(config.dropout_ratio)
 
 
@@ -59,17 +59,6 @@ class Embeddings(nn.Module):
             return out
         return self.fc_dropout(self.fc(out))
 
-
-
-class LinkLayer(nn.Module):
-    def __init__(self, input_dim, output_dim, dropout_ratio):
-        super(LinkLayer, self).__init__()
-
-        self.link = nn.Linear(input_dim, output_dim)
-        self.dropout = nn.Dropout(dropout_ratio)
-
-    def forward(self, x):
-        return self.dropout(self.link(x))
 
 
 
@@ -86,26 +75,24 @@ class Encoder(nn.Module):
             batch_first=True
         )
 
-        self.embeddings = Embeddings(config)
+        self.embeddings = Embeddings(config, config.enc_hidden_dim)
         self.layers = clones(layer, config.enc_n_layers)
 
-        self.emb_enc_link = LinkLayer(
-            config.emb_dim, config.enc_hidden_dim, config.dropout_ratio
-        )
-        self.enc_dec_link = LinkLayer(
-            config.enc_hidden_dim, config.dec_hidden_dim, config.dropout_ratio
-        )
-
+        self.apply_link = config.model_type in ['enc_wide', 'dec_wide', 'large']
+        if self.apply_link:
+            self.link_layer = nn.Linear(config.enc_hidden_dim, config.dec_hidden_dim)
+            self.link_dropout = nn.Dropout(config.dropout_ratio)
 
     def forward(self, x, e_mask):
 
         x = self.embeddings(x)
-        x = self.emb_enc_link(x)
-
         for layer in self.layers:
             x = layer(x, src_key_padding_mask=e_mask)
         
-        return self.enc_dec_link(x)
+        if self.apply_link:
+            return self.link_dropout(self.link_layer(x))
+        
+        return x
 
 
 
@@ -122,22 +109,18 @@ class Decoder(nn.Module):
             batch_first=True
         )
 
-        self.embeddings = Embeddings(config)
+        self.embeddings = Embeddings(config, config.dec_hidden_dim)
         self.layers = clones(layer, config.dec_n_layers)
-        
-        self.emb_dec_link = LinkLayer(
-            config.emb_dim, config.dec_hidden_dim, config.dropout_ratio
-        )
-        self.dec_gen_link = LinkLayer(
-            config.dec_hidden_dim, config.hidden_dim, config.dropout_ratio
-        )
+
+        self.apply_link = config.model_type in ['dec_wide', 'large']
+        if self.apply_link:
+            self.link_layer = nn.Linear(config.dec_hidden_dim, config.hidden_dim)
+            self.link_dropout = nn.Dropout(config.dropout_ratio)
 
 
     def forward(self, x, memory, e_mask=None, d_mask=None):
         
-        x = self.embeddings(x)
-        x = self.emb_dec_link(x)
-        
+        x = self.embeddings(x)        
         for layer in self.layers:
             x = layer(
                 x, memory, 
@@ -145,7 +128,10 @@ class Decoder(nn.Module):
                 tgt_mask=d_mask,
             )
 
-        return self.dec_gen_link(x)
+        if self.apply_link:
+            return self.link_dropout(self.link_layer(x))
+        
+        return x
 
 
 
@@ -155,16 +141,24 @@ class Transformer(nn.Module):
         
         self.device = config.device
         self.pad_id = config.pad_id
+        self.vocab_size = config.vocab_size
 
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
-
         self.generator = nn.Linear(config.hidden_dim, config.vocab_size)
 
+        self.criterion = nn.CrossEntropyLoss()
+        self.out = namedtuple('Out', 'logit loss')
+    
     
     def pad_mask(self, x):
         return x == self.pad_id
-    
+
+
+    @staticmethod    
+    def shift_y(x):
+        return x[:, :-1], x[:, 1:]    
+
 
     def dec_mask(self, x):
         sz = x.size(1)
@@ -172,11 +166,22 @@ class Transformer(nn.Module):
 
 
     def forward(self, x, y):
-        e_mask = self.pad_mask(x) 
-        d_mask = self.dec_mask(y)
+        y, label = self.shift_y(y)
 
+        #Masking
+        e_mask = self.pad_mask(x)
+        d_mask = self.dec_mask(y)
+        
+        #Actual Processing
         memory = self.encoder(x, e_mask)
         dec_out = self.decoder(y, memory, e_mask, d_mask)
         logit = self.generator(dec_out)
-
-        return logit
+        
+        #Getting Outputs
+        self.out.logit = logit
+        self.out.loss = self.criterion(
+            logit.contiguous().view(-1, self.vocab_size), 
+            label.contiguous().view(-1)
+        )
+        
+        return self.out
