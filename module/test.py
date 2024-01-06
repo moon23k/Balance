@@ -71,6 +71,9 @@ class Tester:
 
 
     def evaluate(self, pred, label):
+        if all(elem == '' for elem in pred):
+            return 0.0
+        
         #For Transaltion Evaluation
         if self.task == 'translation':
             score = self.metric_module.compute(
