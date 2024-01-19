@@ -54,8 +54,7 @@ class Config(object):
         self.device = torch.device(self.device_type)
 
 
-    def update_model_attrs(self):
-        
+    def update_model_attrs(self):        
         attributes = {
             'enc_n_layers': self.n_layers,
             'dec_n_layers': self.n_layers,
@@ -74,8 +73,10 @@ class Config(object):
             'dec_deep': ['dec_n_layers'],
             'enc_diverse': ['enc_n_heads'],
             'dec_diverse': ['dec_n_heads'],
-            'large': ['enc_hidden_dim', 'enc_pff_dim', 'dec_hidden_dim', 'dec_pff_dim',
-                    'enc_n_layers', 'dec_n_layers', 'enc_n_heads', 'dec_n_heads']
+            'large': ['enc_hidden_dim', 'enc_pff_dim', 
+                      'dec_hidden_dim', 'dec_pff_dim',
+                      'enc_n_layers', 'dec_n_layers', 
+                      'enc_n_heads', 'dec_n_heads']
         }
 
         model_type = self.model_type
