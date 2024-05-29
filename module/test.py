@@ -17,8 +17,8 @@ class Tester:
         self.max_len = config.max_len
         self.model_type = config.model_type
         
-        self.metric_name = 'BLEU' if self.task == 'translation' else 'ROUGE'
-        self.metric_module = evaluate.load(self.metric_name.lower())
+        metric_name = 'bleu' if self.task == 'translation' else 'rouge'
+        self.metric_module = evaluate.load(metric_name)
         
 
 
@@ -36,7 +36,7 @@ class Tester:
                 
                 score += self.evaluate(pred, y)
 
-        txt = f"TEST Result on {self.task.upper()} with {self.model_type.upper()} model"
+        txt = f"{self.task.upper()} TEST Result on {self.model_type.upper()} model"
         txt += f"\n-- Score: {round(score/len(self.dataloader), 2)}\n"
         print(txt)
 
