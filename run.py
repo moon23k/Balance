@@ -2,12 +2,10 @@ import os, yaml, argparse, torch
 from tokenizers import Tokenizer
 from tokenizers.processors import TemplateProcessing
 from module import (
-    load_dataloader,
-    load_model,
-    Trainer,
-    Tester,
-    Generator
+    load_dataloader, load_model,
+    Trainer, Tester, SeqGenerator
 )
+
 
 
 
@@ -129,7 +127,7 @@ def main(args):
         tester.test()
     
     elif config.mode == 'inference':
-        generator = Generator(config, model, tokenizer)
+        generator = SeqGenerator(config, model, tokenizer)
         generator.inference()
     
 

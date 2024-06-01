@@ -162,7 +162,7 @@ class Transformer(nn.Module):
         return x[:, :-1], x[:, 1:]    
 
 
-    def dec_mask(self, x):
+    def causal_mask(self, x):
         sz = x.size(1)
         return torch.triu(torch.full((sz, sz), float('-inf')), diagonal=1).to(self.device)
 
@@ -172,7 +172,7 @@ class Transformer(nn.Module):
 
         #Masking
         e_mask = self.pad_mask(x)
-        d_mask = self.dec_mask(y)
+        d_mask = self.causal_mask(y)
         
         #Actual Processing
         memory = self.encoder(x, e_mask)
